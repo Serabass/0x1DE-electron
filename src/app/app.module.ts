@@ -27,6 +27,7 @@ import { CodeEditorModule } from '@ngstack/code-editor';
 import { MemoryDumpComponent } from './components/memory-dump/memory-dump.component';
 import { ToolbarComponent } from './components/toolbar/toolbar.component';
 import { RegistersComponent } from './components/registers/registers.component';
+import { HexValuePipe } from './pipes/hex-value.pipe';
 registerLocaleData(en);
 
 // AoT requires an exported function for factories
@@ -40,7 +41,9 @@ export function HttpLoaderFactory(http: HttpClient) {
     DocumentComponent,
     MemoryDumpComponent,
     ToolbarComponent,
-    RegistersComponent
+    RegistersComponent,
+
+    HexValuePipe
   ],
   imports: [
     BrowserModule,

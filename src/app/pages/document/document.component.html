@@ -15,13 +15,17 @@
     ></ngs-code-editor>
   </nz-col>
   
-  <nz-col [nzMd]="6">
+  <nz-col [nzMd]="3">
     bytes
   </nz-col>
-  <nz-col [nzMd]="6">
+  <nz-col [nzMd]="9">
     <nz-row>
       <nz-col>screen</nz-col>
-      <nz-col><app-registers></app-registers></nz-col>
+    </nz-row>
+    <nz-row>
+      <nz-col><app-registers></app-registers></nz-col> 
+    </nz-row>
+    <nz-row>
       <nz-col><app-memory-dump></app-memory-dump></nz-col>
     </nz-row>
   </nz-col>

@@ -1,5 +1,10 @@
-<div class="row" *ngFor="let row of rows">
+<nz-row *ngFor="let row of rows; let i = index" class="row">
+  <nz-col>
+    <div class="cell offset">
+      {{ i * 8 | hexValue }}:
+    </div>
     <div class="cell" *ngFor="let cell of row">
       {{ cell }}
     </div>
-</div>
+  </nz-col>
+</nz-row>

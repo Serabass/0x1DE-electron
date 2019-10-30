@@ -1,6 +1,17 @@
+:host {
+  padding: 9px;
+  display: block;
+  height: 122px;
+}
+
 .row {
+  clear: both;
   .cell {
+    text-align: center;
+    padding: 0 10px;
     float: left;
-    width: 100px;
+    &.offset {
+      font-weight: bold;
+    }
   }
 }
