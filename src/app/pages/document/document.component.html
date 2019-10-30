@@ -1,0 +1,28 @@
+<nz-row>
+  <nz-col [nzMd]="24">
+    <app-toolbar></app-toolbar>
+  </nz-col>
+</nz-row>
+
+<nz-row>
+  <nz-col [nzMd]="12">
+    <textarea [(ngModel)]="codeModel.value"></textarea>
+    <ngs-code-editor *ngIf="false"
+      [theme]="theme"
+      [codeModel]="model"
+      [options]="options"
+      (valueChanged)="onCodeChanged($event)"
+    ></ngs-code-editor>
+  </nz-col>
+  
+  <nz-col [nzMd]="6">
+    bytes
+  </nz-col>
+  <nz-col [nzMd]="6">
+    <nz-row>
+      <nz-col>screen</nz-col>
+      <nz-col><app-registers></app-registers></nz-col>
+      <nz-col><app-memory-dump></app-memory-dump></nz-col>
+    </nz-row>
+  </nz-col>
+</nz-row>
