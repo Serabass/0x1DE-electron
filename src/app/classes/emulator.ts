@@ -3,7 +3,7 @@
  *  by deNULL (me@denull.ru)
  */
 
-export class Enumator {
+export class Emulator {
   public regs = ["A", "B", "C", "X", "Y", "Z", "I", "J"];
   public cycles = 0;
   

@@ -27,8 +27,9 @@ export class Clock {
 
   public start() {
     this.stop();
-    var self = this;
-    this.timer = setInterval(function() { self.tick(self); }, 2);
+    this.timer = setInterval(() => {
+      this.tick();
+    }, 2);
     this.last = new Date().getTime();
   }
 
@@ -39,17 +40,17 @@ export class Clock {
     }
   }
 
-  public tick(self) {
-    if (!self.heartbeat) return;
+  public tick() {
+    if (!this.heartbeat) return;
     var now = new Date().getTime();
-    while (now - self.last >= self.heartbeat) {
-      self.ticks++;
-      if (self.message) {
-        self.queueInterrupt(function(memory, registers, state, hardware) {
-          registers.A = self.message;
+    while (now - this.last >= this.heartbeat) {
+      this.ticks++;
+      if (this.message) {
+        this.queueInterrupt((memory, registers, state, hardware) => {
+          registers.A = this.message;
         });
       }
-      self.last += self.heartbeat;
+      this.last += this.heartbeat;
     }
   }
 

@@ -5,7 +5,25 @@ import { pad } from "./common";
  *  by deNULL (me@denull.ru)
  */
 
-class Disassembler {
+
+export interface Op {
+  opcode: number;
+  a: number;
+  b: number;
+  b_immediate?;
+  a_immediate?;
+  size?;
+}
+
+export interface Res {
+  size?;
+  code?;
+  terminal?;
+  branch?;
+  conditional?: boolean;
+}
+
+export class Disassembler {
   REGISTERS = [ "A", "B", "C", "X", "Y", "Z", "I", "J" ];
   SPECIALS = {
     0x18: "PUSH",
@@ -96,7 +114,7 @@ class Disassembler {
     var start = offset;
     if (offset >= memory.length) return false;
     var word = memory[offset++];
-    var op = {
+    var op: Op = {
        opcode: (word & 0x1f),
        a: (word >> 10 & 0x3f),
        b: (word >> 5 & 0x1f)
@@ -114,7 +132,7 @@ class Disassembler {
     if (op.b >= 0x20) op.b_immediate = (op.b == 0x20 ? 0xffff : (op.b - 0x21));
     op.size = offset - start;
     return op;
-  },
+  }
 
   /**
    * Disassemble a single operation in memory at the specified offset.
@@ -126,7 +144,7 @@ class Disassembler {
    *   - size: # of words consumed
    */
   disassemble(memory, offset, labels, wrapAs, logger) {
-    var res = { };
+    var res: Res = { };
     var op = this.nextOp(memory, offset);
     if (!op) {
       logger(offset, "Disassembler reached end of the file");
@@ -207,7 +225,7 @@ class Disassembler {
             res.code = wrapAs("op", code) + " " + vb + ", " + wrapAs("lbl", labels[res.branch]);
             break;
           }
-          
+
           case 0x02: { res.branch = (offset + op.a_immediate) & 0xffff; break; }
           case 0x03: { res.branch = (offset - op.a_immediate) & 0xffff; break; }
           case 0x04: { res.branch = (offset * op.a_immediate) & 0xffff; break; }
