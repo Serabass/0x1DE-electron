@@ -1,10 +1,79 @@
+import { wrapAs } from "./common";
+
+export let opcode;
+export let comment;
+
 /*
  *  DCPU-16 Assembler & Emulator Library
  *  by deNULL (me@denull.ru)
  */
 
+export interface Line {
+  text;
+  pos;
+  end;
+  args;
+  syntax;
+  syntax_end;
+  label?;
+  directive?;
+  macro?;
+  macro_params?;
+  define?;
+  start_block?;
+  end_block?;
+  op?;
+  arg_locs?;
+  arg_ends?;
+}
+
+export interface Atom {
+  loc;
+  state?;
+  literal?;
+  register?;
+  label?;
+}
+
+export interface Info {
+  op?;
+  size?;
+  syntax?;
+  dump?;
+  code?;
+  immediate?;
+  expr?;
+  short?;
+  expanded?;
+  org?;
+  branch_from?;
+  a?;
+  b?;
+}
+
+export interface State {
+  text;
+  is_a;
+  pos;
+  end;
+  subst;
+  logger;
+  short?;
+  delay_eval?;
+}
+
+export interface LeftRight {
+  state?;
+  binary?;
+  left?;
+  right?;
+  loc?;
+  register?;
+  label?;
+}
+
 export class Assembler {
-  DIRECTIVES = [ 'macro', 'define' ];
+  DIRECTIVES = ["macro", "define"];
 
   REGISTERS = {
     a: 0,
@@ -18,20 +87,20 @@ export class Assembler {
   };
   SPECIALS = {
     push: 0x18,
-    pop:  0x18,
+    pop: 0x18,
     peek: 0x19,
     pick: 0x1a,
-    sp:   0x1b,
-    pc:   0x1c,
-    o:    0x1d, // deprecated
-    ex:   0x1d
+    sp: 0x1b,
+    pc: 0x1c,
+    o: 0x1d, // deprecated
+    ex: 0x1d
   };
   BINARY = {
-    '*': 2,
-    '/': 2,
-    '%': 2,
-    '+': 1,
-    '-': 1
+    "*": 2,
+    "/": 2,
+    "%": 2,
+    "+": 1,
+    "-": 1
   };
 
   OP_BINARY = {
@@ -63,10 +132,10 @@ export class Assembler {
     sbx: 0x1b,
     // ...
     sti: 0x1e,
-    std: 0x1f,
+    std: 0x1f
   };
 
-  OP_SPECIAL: {
+  OP_SPECIAL = {
     jsr: 0x01,
     // ...
     hcf: 0x07,
@@ -78,16 +147,54 @@ export class Assembler {
     // ...
     hwn: 0x10,
     hwq: 0x11,
-    hwi: 0x12,
+    hwi: 0x12
   };
 
-  OP_RESERVED = ['set', 'add', 'sub', 'mul', 'mli', 'div', 'dvi', 'mod',
-                 'mdi', 'and', 'bor', 'xor', 'shr', 'asr', 'shl',
-                 'ifb', 'ifc', 'ife', 'ifn', 'ifg', 'ifa', 'ifl', 'ifu',
-                 'adx', 'sbx', 'sti', 'std',
-                 'jsr', 'hcf', 'int', 'iag', 'ias', 'iap', 'iaq',
-                 'hwn', 'hwq', 'hwi',
-                 'jmp', 'brk', 'ret', 'bra', 'dat', 'org' ];
+  OP_RESERVED = [
+    "set",
+    "add",
+    "sub",
+    "mul",
+    "mli",
+    "div",
+    "dvi",
+    "mod",
+    "mdi",
+    "and",
+    "bor",
+    "xor",
+    "shr",
+    "asr",
+    "shl",
+    "ifb",
+    "ifc",
+    "ife",
+    "ifn",
+    "ifg",
+    "ifa",
+    "ifl",
+    "ifu",
+    "adx",
+    "sbx",
+    "sti",
+    "std",
+    "jsr",
+    "hcf",
+    "int",
+    "iag",
+    "ias",
+    "iap",
+    "iaq",
+    "hwn",
+    "hwq",
+    "hwi",
+    "jmp",
+    "brk",
+    "ret",
+    "bra",
+    "dat",
+    "org"
+  ];
 
   SPACE = { 32: true, 160: true, 13: true, 10: true, 9: true }; // to replace charAt(pos).match(/\s/), using regexps is very slow
 
@@ -119,15 +226,15 @@ export class Assembler {
       return false;
     }
 
-    let atom = { loc: pos };
+    let atom: Atom = { loc: pos };
 
-    if (text.charAt(pos) == '(') {
+    if (text.charAt(pos) == "(") {
       state.pos = pos + 1;
       atom = this.parseExpression(state, 0);
       if (!atom) return false;
       pos = atom.state.pos;
       while (pos < end && this.SPACE[text.charCodeAt(pos)]) pos++;
-      if (pos == end || text.charAt(pos) != ')') {
+      if (pos == end || text.charAt(pos) != ")") {
         logger(pos, "Missing ) on expression", true);
         return false;
       }
@@ -169,7 +276,7 @@ export class Assembler {
    *   - register
    *   - label
    */
-  public parseExpression(state, precedence) {
+  public parseExpression(state, precedence?) {
     var text = state.text;
     var pos = state.pos;
     var end = state.end;
@@ -180,13 +287,13 @@ export class Assembler {
       logger(pos, "Expression expected", true);
       return false;
     }
-    var left = this.parseUnary(state);
+    var left: LeftRight | any = this.parseUnary(state);
     if (!left) return false;
     pos = left.state.pos;
 
     while (true) {
       while (pos < end && this.SPACE[text.charCodeAt(pos)]) pos++;
-      if (pos == end || text.charAt(pos) == ')') return left;
+      if (pos == end || text.charAt(pos) == ")") return left;
 
       var newprec = this.BINARY[text.charAt(pos)];
       if (newprec === undefined) {
@@ -199,14 +306,23 @@ export class Assembler {
       state.pos = pos + 1;
       var right = this.parseExpression(state, newprec);
       if (!right) return false;
-      left = { binary: op, left: left, right: right, state: right.state, loc: loc };
+      left = {
+        binary: op,
+        left: left,
+        right: right,
+        state: right.state,
+        loc: loc
+      };
       pos = left.state.pos;
     }
   }
 
   public parseUnary(state) {
-    if (state.pos < state.end &&
-        (state.text.charAt(state.pos) == '-' || state.text.charAt(state.pos) == '+')) {
+    if (
+      state.pos < state.end &&
+      (state.text.charAt(state.pos) == "-" ||
+        state.text.charAt(state.pos) == "+")
+    ) {
       var loc = state.pos;
       var op = state.text.charAt(state.pos);
       state.pos++;
@@ -218,7 +334,6 @@ export class Assembler {
     }
   }
 
-  
   /**
    * Convert an expression tree from 'parseExpression' into a human-friendly string form, for
    * debugging.
@@ -233,8 +348,15 @@ export class Assembler {
     } else if (expr.unary !== undefined) {
       return "(" + expr.unary + this.expressionToString(expr.right) + ")";
     } else if (expr.binary !== undefined) {
-      return "(" + this.expressionToString(expr.left) + " " + expr.binary + " " +
-        this.expressionToString(expr.right) + ")";
+      return (
+        "(" +
+        this.expressionToString(expr.left) +
+        " " +
+        expr.binary +
+        " " +
+        this.expressionToString(expr.right) +
+        ")"
+      );
     } else {
       return "ERROR";
     }
@@ -253,23 +375,40 @@ export class Assembler {
       value = expr.literal;
     } else if (expr.label !== undefined) {
       if (this.SPECIALS[expr.label] !== undefined) {
-        logger(pos, "You can't use " + expr.label.toUpperCase() + " in expressions.", true);
+        logger(
+          pos,
+          "You can't use " + expr.label.toUpperCase() + " in expressions.",
+          true
+        );
         return false;
       }
       value = labels[expr.label];
       if (value === undefined) {
-        if (fatal) logger(expr.loc, "Unresolvable reference to '" + expr.label + "'", true);
+        if (fatal)
+          logger(
+            expr.loc,
+            "Unresolvable reference to '" + expr.label + "'",
+            true
+          );
         return false;
       }
     } else if (expr.register !== undefined) {
-      logger(expr.loc, "Constant expressions may not contain register references", true);
+      logger(
+        expr.loc,
+        "Constant expressions may not contain register references",
+        true
+      );
       return false;
     } else if (expr.unary !== undefined) {
       value = this.evalConstant(expr.right, labels, fatal);
       if (value === false) return false;
       switch (expr.unary) {
-        case '-': { value = -value; break; }
-        default: break;
+        case "-": {
+          value = -value;
+          break;
+        }
+        default:
+          break;
       }
     } else if (expr.binary !== undefined) {
       var left = this.evalConstant(expr.left, labels, fatal);
@@ -277,11 +416,26 @@ export class Assembler {
       var right = this.evalConstant(expr.right, labels, fatal);
       if (right === false) return false;
       switch (expr.binary) {
-        case '+': { value = left + right; break; }
-        case '-': { value = left - right; break; }
-        case '*': { value = left * right; break; }
-        case '/': { value = left / right; break; }
-        case '%': { value = left % right; break; }
+        case "+": {
+          value = left + right;
+          break;
+        }
+        case "-": {
+          value = left - right;
+          break;
+        }
+        case "*": {
+          value = left * right;
+          break;
+        }
+        case "/": {
+          value = left / right;
+          break;
+        }
+        case "%": {
+          value = left % right;
+          break;
+        }
         default: {
           logger(expr.loc, "Internal error (undefined binary operator)", true);
           return false;
@@ -292,12 +446,18 @@ export class Assembler {
       return false;
     }
     if (value < 0 || value > 0xffff) {
-      logger(pos, "(Warning) Literal value " + value.toString(16) + " will be truncated to " + (value & 0xffff).toString(16));
+      logger(
+        pos,
+        "(Warning) Literal value " +
+          value.toString(16) +
+          " will be truncated to " +
+          (value & 0xffff).toString(16)
+      );
       value = value & 0xffff;
     }
     return value;
   }
-  
+
   /**
    * Parse any constant in this line and place it into the labels map if we found one.
    * Returns true if this line did contain some constant definition (even if it was an error),
@@ -307,16 +467,29 @@ export class Assembler {
     var match = text.match(/^\s*([A-Za-z_.][A-Za-z0-9_.]*)\s*=\s*(\S+)/);
     if (!match) return false;
     var name = match[1].toLowerCase();
-    if (this.REGISTERS[name] !== undefined || this.SPECIALS[name] !== undefined) {
-      logger(0, name + " is a reserved word and can't be used as a constant.", true);
+    if (
+      this.REGISTERS[name] !== undefined ||
+      this.SPECIALS[name] !== undefined
+    ) {
+      logger(
+        0,
+        name + " is a reserved word and can't be used as a constant.",
+        true
+      );
       return true;
     }
-    if (labels[name]) logger(0, "Duplicate label \"" + name + "\"");
+    if (labels[name]) logger(0, 'Duplicate label "' + name + '"');
 
     // manually find position of expression, for displaying nice error messages.
-    var pos = text.indexOf('=') + 1;
+    var pos = text.indexOf("=") + 1;
     while (this.SPACE[text.charCodeAt(pos)]) pos++;
-    var state = { text: text, pos: pos, end: text.length, subst: subst, logger: logger };
+    var state = {
+      text: text,
+      pos: pos,
+      end: text.length,
+      subst: subst,
+      logger: logger
+    };
     var expr = this.parseExpression(state, 0);
     if (expr) {
       var value = this.evalConstant(expr, labels, true);
@@ -339,26 +512,32 @@ export class Assembler {
     var pos = 0;
     var pend = text.length;
     var end = text.length;
-    var line = { text: text, pos: pos, end: end, args: [], syntax: "", syntax_end: "" };
+    var line: Line = {
+      text: text,
+      pos: pos,
+      end: end,
+      args: [],
+      syntax: "",
+      syntax_end: ""
+    };
 
     // strip comments so we don't have to worry about them
     var in_string = false;
     var in_char = false;
 
     for (var i = 0; i < text.length; i++) {
-      if (in_string && text.charAt(i) == '\\' && i < text.length - 1) {
+      if (in_string && text.charAt(i) == "\\" && i < text.length - 1) {
         i++;
       } else if (text.charAt(i) == '"') {
         in_string = !in_string;
-      } else if (text.charAt(i) == '\'' && !in_string) {
+      } else if (text.charAt(i) == "'" && !in_string) {
         in_char = !in_char;
-      } else if (text.charAt(i) == ';' && !in_string && !in_char) {
+      } else if (text.charAt(i) == ";" && !in_string && !in_char) {
         line.syntax_end = wrapAs(text.substr(i), "comm");
         end = i;
         break;
       }
     }
-
 
     while (pos < end && this.SPACE[text.charCodeAt(pos)]) pos++;
     line.syntax += text.substring(ppos, pos);
@@ -368,9 +547,15 @@ export class Assembler {
     if (text.charAt(pos) == ":") {
       // label
       pos++;
-      line.label = text.substr(pos, end - pos).match(/^[a-zA-Z_.][a-zA-Z_.0-9]*/);
+      line.label = text
+        .substr(pos, end - pos)
+        .match(/^[a-zA-Z_.][a-zA-Z_.0-9]*/);
       if (!line.label || line.label[0].length == 0) {
-        logger(pos, "Label name must contain only latin characters, underscore, dot or digits.", true);
+        logger(
+          pos,
+          "Label name must contain only latin characters, underscore, dot or digits.",
+          true
+        );
         return false;
       }
       line.label = line.label[0].toLowerCase();
@@ -389,7 +574,10 @@ export class Assembler {
       // directive
       pos++;
       line.directive = text.substr(pos, end - pos).match(/^[a-zA-Z]*/);
-      if (!line.directive || this.DIRECTIVES.indexOf(line.directive[0].toLowerCase()) < 0) {
+      if (
+        !line.directive ||
+        this.DIRECTIVES.indexOf(line.directive[0].toLowerCase()) < 0
+      ) {
         logger(pos, "Unknown directive: #" + line.directive[0], true);
         return false;
       }
@@ -407,7 +595,11 @@ export class Assembler {
       if (line.directive == "macro") {
         // #macro directive
         line.macro = text.substr(pos, end - pos).match(/^[^\s(]*/);
-        if (!line.macro || line.macro[0].length == 0 || this.OP_RESERVED.indexOf(line.macro[0].toLowerCase()) > -1) {
+        if (
+          !line.macro ||
+          line.macro[0].length == 0 ||
+          this.OP_RESERVED.indexOf(line.macro[0].toLowerCase()) > -1
+        ) {
           logger(pos, "Invalid macro name: " + line.macro[0], true);
           return false;
         }
@@ -440,11 +632,16 @@ export class Assembler {
           line.macro_params.pop();
         }
         return line;
-      } else
-      if (line.directive == "define") {
-        line.define = text.substr(pos, end - pos).match(/^[a-zA-Z_.][a-zA-Z_.0-9]*/);
+      } else if (line.directive == "define") {
+        line.define = text
+          .substr(pos, end - pos)
+          .match(/^[a-zA-Z_.][a-zA-Z_.0-9]*/);
         if (!line.define || line.define[0].length == 0) {
-          logger(pos, "#define name must contain only latin characters, underscore, dot or digits.", true);
+          logger(
+            pos,
+            "#define name must contain only latin characters, underscore, dot or digits.",
+            true
+          );
           return false;
         }
         line.define = line.define[0].toLowerCase();
@@ -489,7 +686,11 @@ export class Assembler {
       }
       var macro_nm = macros[line.op];
       if (macro_nm && macro_nm.length) {
-        if (pos < end - 1 && text.charAt(pos) == '(' && text.charAt(end - 1) == ')') {
+        if (
+          pos < end - 1 &&
+          text.charAt(pos) == "(" &&
+          text.charAt(end - 1) == ")"
+        ) {
           pos++;
           end--;
         }
@@ -508,36 +709,50 @@ export class Assembler {
     line.syntax_end = text.substring(end, pend) + line.syntax_end;
     pend = end;
 
-    var args = [ "" ];
-    var arg_locs = [ -1 ];
-    var arg_ends = [ -1 ];
+    var args = [""];
+    var arg_locs = [-1];
+    var arg_ends = [-1];
     var n = 0;
     in_string = false;
     in_char = false;
     for (var i = pos; i < end; i++) {
       var ch = text.charAt(i);
-      if (!in_string && !in_char && (this.SPACE[text.charCodeAt(i)] || ch == ',' || ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%')) {
+      if (
+        !in_string &&
+        !in_char &&
+        (this.SPACE[text.charCodeAt(i)] ||
+          ch == "," ||
+          ch == "(" ||
+          ch == ")" ||
+          ch == "[" ||
+          ch == "]" ||
+          ch == "+" ||
+          ch == "-" ||
+          ch == "*" ||
+          ch == "/" ||
+          ch == "%")
+      ) {
         line.syntax += text.substring(ppos, pos);
         ppos = pos;
       }
 
-      if (ch == '\\' && i + 1 < end) {
+      if (ch == "\\" && i + 1 < end) {
         if (arg_locs[n] == -1) arg_locs[n] = i;
         args[n] += ch;
       } else if (ch == '"' && !in_char) {
         in_string = !in_string;
         args[n] += ch;
-      } else if (ch == "\'" && !in_string) {
+      } else if (ch == "'" && !in_string) {
         in_char = !in_char;
         args[n] += ch;
         if (arg_locs[n] == -1) arg_locs[n] = i;
-      } else if (ch == ',' && !in_string && !in_char) {
+      } else if (ch == "," && !in_string && !in_char) {
         arg_ends[n] = i;
         args.push("");
         arg_locs.push(-1);
         arg_ends.push(-1);
         n += 1;
-      } else if (ch == ';' && !in_string && !in_char) {
+      } else if (ch == ";" && !in_string && !in_char) {
         break;
       } else if (in_string || in_char || !this.SPACE[text.charCodeAt(i)]) {
         if (arg_locs[n] == -1) arg_locs[n] = i;
@@ -566,14 +781,26 @@ export class Assembler {
   public unquoteString(s) {
     var rv = "";
     for (var i = 0; i < s.length; i++) {
-      if (s.charAt(i) == '\\' && i < s.length - 1) {
+      if (s.charAt(i) == "\\" && i < s.length - 1) {
         i += 1;
         switch (s.charAt(i)) {
-          case 'n': { rv += "\n"; break; }
-          case 'r': { rv += "\r"; break; }
-          case 't': { rv += "\t"; break; }
-          case 'z': { rv += "\x00"; break; }
-          case 'x': {
+          case "n": {
+            rv += "\n";
+            break;
+          }
+          case "r": {
+            rv += "\r";
+            break;
+          }
+          case "t": {
+            rv += "\t";
+            break;
+          }
+          case "z": {
+            rv += "\x00";
+            break;
+          }
+          case "x": {
             if (i < s.length - 2) {
               rv += String.fromCharCode(parseInt(s.substr(i + 1, 2), 16));
               i += 2;
@@ -582,7 +809,10 @@ export class Assembler {
             }
             break;
           }
-          default: { rv += "\\" + s.charAt(i); break; }
+          default: {
+            rv += "\\" + s.charAt(i);
+            break;
+          }
         }
       } else {
         rv += s.charAt(i);
@@ -591,8 +821,15 @@ export class Assembler {
     return rv;
   }
 
-  public stateFromArg(is_a, line, i, subst, logger) {
-    return { text: line.text, is_a: is_a, pos: line.arg_locs[i], end: line.arg_ends[i], subst: subst, logger: logger };
+  public stateFromArg(is_a, line, i, subst, logger): State {
+    return {
+      text: line.text,
+      is_a: is_a,
+      pos: line.arg_locs[i],
+      end: line.arg_ends[i],
+      subst: subst,
+      logger: logger
+    };
   }
 
   public handleData(info, line, labels, subst, logger) {
@@ -608,10 +845,11 @@ export class Assembler {
           info.dump.push(arg.charCodeAt(j));
           info.data_expr.push(false);
         }
-      } else if (arg.charAt(0) == 'p' && arg.charAt(1) == '"') {
+      } else if (arg.charAt(0) == "p" && arg.charAt(1) == '"') {
         // packed string
         arg = this.unquoteString(arg.substr(2, arg.length - 3));
-        var word = 0, in_word = false;
+        var word = 0,
+          in_word = false;
         for (var j = 0; j < arg.length; j++) {
           var c = arg.charCodeAt(j);
           if (in_word) {
@@ -631,7 +869,10 @@ export class Assembler {
           info.data_expr.push(false);
         }
       } else {
-        var expr = this.parseExpression(this.stateFromArg(true, line, i, subst, logger), 0);
+        var expr = this.parseExpression(
+          this.stateFromArg(true, line, i, subst, logger),
+          0
+        );
         if (!expr) return false;
         info.size++;
         info.dump.push(0x0000);
@@ -654,11 +895,14 @@ export class Assembler {
     var end = state.end;
     var logger = state.logger;
     var is_a = state.is_a;
-    var info = { };
+    var info: Info = {};
 
     var pointer = false;
-    if (state.text.charAt(state.pos) == '[') {
-      if (state.pos + 2 >= state.end || state.text.charAt(state.end - 1) != ']') {
+    if (state.text.charAt(state.pos) == "[") {
+      if (
+        state.pos + 2 >= state.end ||
+        state.text.charAt(state.end - 1) != "]"
+      ) {
         logger(state.pos, "Missing ']'", true);
         return false;
       }
@@ -671,7 +915,11 @@ export class Assembler {
     if (end - pos >= 4 && state.text.substr(pos, 4).toLowerCase() == "pick") {
       pick = true;
       state.pos += 4;
-      while (state.pos < state.end && this.SPACE[state.text.charCodeAt(state.pos)]) state.pos++;
+      while (
+        state.pos < state.end &&
+        this.SPACE[state.text.charCodeAt(state.pos)]
+      )
+        state.pos++;
     }
 
     var expr = this.parseExpression(state);
@@ -693,13 +941,17 @@ export class Assembler {
       info.code = (pointer ? 0x08 : 0x00) + expr.register;
       return info;
     }
-    if (expr.label !== undefined && this.SPECIALS[expr.label] !== undefined ) {
+    if (expr.label !== undefined && this.SPECIALS[expr.label] !== undefined) {
       if (pointer) {
         logger(state.pos, "You can't use a pointer to " + expr.label, true);
         return false;
       }
       if ((is_a && expr.label == "push") || (!is_a && expr.label == "pop")) {
-        logger(state.pos, "You can't use " + wrapAs(expr.label.toUpperCase(), "kw") + " here", true);
+        logger(
+          state.pos,
+          "You can't use " + wrapAs(expr.label.toUpperCase(), "kw") + " here",
+          true
+        );
         return false;
       }
       info.code = this.SPECIALS[expr.label];
@@ -707,9 +959,12 @@ export class Assembler {
     }
 
     // special case: [literal + register]
-    if (pointer && expr.binary !== undefined &&
-        (expr.left.register !== undefined || expr.right.register !== undefined)) {
-      if (expr.binary != '+') {
+    if (
+      pointer &&
+      expr.binary !== undefined &&
+      (expr.left.register !== undefined || expr.right.register !== undefined)
+    ) {
+      if (expr.binary != "+") {
         logger(state.pos, "Only a sum of a value + register is allowed");
         return false;
       }
@@ -731,12 +986,14 @@ export class Assembler {
     }
 
     // try resolving the expression if we can
-    var value = state.delay_eval ? false : this.evalConstant(expr, labels, false);
+    var value = state.delay_eval
+      ? false
+      : this.evalConstant(expr, labels, false);
     if (value !== false) {
       if (!pointer && (value == 0xffff || value < 31) && is_a) {
-        info.code = 0x20 + (value == 0xffff ? 0x00 : (0x01 + value));
+        info.code = 0x20 + (value == 0xffff ? 0x00 : 0x01 + value);
       } else {
-        info.code = (pointer ? 0x1e : 0x1f);
+        info.code = pointer ? 0x1e : 0x1f;
         info.immediate = value;
       }
     } else {
@@ -746,7 +1003,7 @@ export class Assembler {
         info.short = true;
         info.expr = expr;
       } else {
-        info.code = (pointer ? 0x1e : 0x1f);
+        info.code = pointer ? 0x1e : 0x1f;
         info.immediate = 0;
         info.expr = expr;
       }
@@ -773,7 +1030,6 @@ export class Assembler {
     return info;
   }
 
-  
   /*
    * Compile a line of code. If either operand can't be resolved yet, it will have an 'expr' field.
    * The size will already be computed in any case.
@@ -784,7 +1040,7 @@ export class Assembler {
   public compileLine(text, org, labels, macros, subst, logger) {
     var line = this.parseLine(text, macros, subst, logger);
     if (!line) return false;
-    var info = { op: line.op, size: 0, dump: [], syntax: line.syntax };
+    var info: Info = { op: line.op, size: 0, dump: [], syntax: line.syntax };
 
     if (macros[" "]) {
       if (line.end_block) {
@@ -798,7 +1054,7 @@ export class Assembler {
     if (line.label) labels[line.label] = org;
 
     if (line.macro) {
-      macros[" "] = {lines: [], params: []};
+      macros[" "] = { lines: [], params: [] };
       if (line.macro_params) {
         for (var i = 0; i < line.macro_params.length; i++) {
           macros[" "].params.push(line.macro_params[i]);
@@ -816,7 +1072,10 @@ export class Assembler {
         logger(0, "#define requires a single value", true);
         return false;
       }
-      var expr = this.parseExpression(this.stateFromArg(true, line, 0, subst, logger), 0);
+      var expr = this.parseExpression(
+        this.stateFromArg(true, line, 0, subst, logger),
+        0
+      );
       if (!expr) return false;
       var value = this.evalConstant(expr, labels, true);
       if (value === false) return false;
@@ -829,20 +1088,37 @@ export class Assembler {
     }
     if (macros[info.op]) {
       if (macros[info.op].indexOf(line.args.length) < 0) {
-        logger(0, "Macro '" + info.op.toLowerCase() + "' supports " + macros[info.op].join("/") + " arguments, received " + line.args.length, true);
+        logger(
+          0,
+          "Macro '" +
+            info.op.toLowerCase() +
+            "' supports " +
+            macros[info.op].join("/") +
+            " arguments, received " +
+            line.args.length,
+          true
+        );
         return false;
       }
       var macro = macros[info.op.toLowerCase() + "(" + line.args.length + ")"];
 
       var macro_subst = {};
-      for (var i = 0; i < macro.params.length; i++) { // build substitutes
+      for (var i = 0; i < macro.params.length; i++) {
+        // build substitutes
         var arg = line.args[i];
         if (subst[arg]) arg = subst[arg];
         macro_subst[macro.params[i]] = arg;
       }
       info.expanded = [];
       for (var i = 0; i < macro.lines.length; i++) {
-        var macro_info = this.compileLine(macro.lines[i], org, labels, macros, macro_subst, logger);
+        var macro_info = this.compileLine(
+          macro.lines[i],
+          org,
+          labels,
+          macros,
+          macro_subst,
+          logger
+        );
         if (!macro_info) {
           return false; // error is already printed
         }
@@ -859,7 +1135,10 @@ export class Assembler {
         logger(0, "ORG requires a single value", true);
         return false;
       }
-      var expr = this.parseExpression(this.stateFromArg(true, line, 0, subst, logger), 0);
+      var expr = this.parseExpression(
+        this.stateFromArg(true, line, 0, subst, logger),
+        0
+      );
       if (!expr) return false;
       var value = this.evalConstant(expr, labels, true);
       if (value === false) return false;
@@ -876,34 +1155,69 @@ export class Assembler {
       line.args.push("pc");
       line.arg_locs.push(0);
       line.arg_ends.push(2);
-      return this.compileLine("set pc, " + line.args[0], org, labels, macros, subst, logger);
+      return this.compileLine(
+        "set pc, " + line.args[0],
+        org,
+        labels,
+        macros,
+        subst,
+        logger
+      );
     } else if (info.op == "brk") {
       return this.compileLine("sub pc, 1", org, labels, macros, subst, logger);
     } else if (info.op == "ret") {
-      return this.compileLine("set pc, pop", org, labels, macros, subst, logger);
+      return this.compileLine(
+        "set pc, pop",
+        org,
+        labels,
+        macros,
+        subst,
+        logger
+      );
     }
 
     var opcode, a, b;
     if (this.OP_BINARY[info.op]) {
       if (line.args.length != 2) {
-        logger(0, "Basic instruction " + wrapAs(info.op.toUpperCase(), "op") + " requires 2 values", true);
+        logger(
+          0,
+          "Basic instruction " +
+            wrapAs(info.op.toUpperCase(), "op") +
+            " requires 2 values",
+          true
+        );
         return false;
       }
       opcode = this.OP_BINARY[info.op];
-      a = this.parseOperand(this.stateFromArg(true, line, 1, subst, logger), labels);
-      b = this.parseOperand(this.stateFromArg(false, line, 0, subst, logger), labels);
+      a = this.parseOperand(
+        this.stateFromArg(true, line, 1, subst, logger),
+        labels
+      );
+      b = this.parseOperand(
+        this.stateFromArg(false, line, 0, subst, logger),
+        labels
+      );
     } else {
       if (this.OP_SPECIAL[info.op]) {
         if (line.args.length != 1) {
-          logger(0, "Non-basic instruction " + wrapAs(info.op.toUpperCase(), "op") + " requires 1 value", true);
+          logger(
+            0,
+            "Non-basic instruction " +
+              wrapAs(info.op.toUpperCase(), "op") +
+              " requires 1 value",
+            true
+          );
           return false;
         }
         opcode = 0;
-        a = this.parseOperand(this.stateFromArg(true, line, 0, subst, logger), labels);
+        a = this.parseOperand(
+          this.stateFromArg(true, line, 0, subst, logger),
+          labels
+        );
         b = { code: this.OP_SPECIAL[info.op] };
       } else {
         if (info.op == "bra") {
-          var state = this.stateFromArg(true, line, 0, subst, logger);
+          var state: State = this.stateFromArg(true, line, 0, subst, logger);
           state.short = true;
           state.delay_eval = true;
           opcode = 0;
@@ -913,14 +1227,21 @@ export class Assembler {
           // we'll compute the branch on the 2nd pass.
           info.branch_from = org + 1;
         } else {
-          logger(0, "Unknown instruction: " + wrapAs(info.op.toUpperCase(), "op"), true);
+          logger(
+            0,
+            "Unknown instruction: " + wrapAs(info.op.toUpperCase(), "op"),
+            true
+          );
           return false;
         }
       }
     }
 
     if (!a || !b) return false;
-    info.size = 1 + (a.immediate !== undefined ? 1 : 0) + (b.immediate !== undefined ? 1 : 0);
+    info.size =
+      1 +
+      (a.immediate !== undefined ? 1 : 0) +
+      (b.immediate !== undefined ? 1 : 0);
     info.dump.push((a.code << 10) | (b.code << 5) | opcode);
     if (a.immediate !== undefined) info.dump.push(a.immediate);
     if (b.immediate !== undefined) info.dump.push(b.immediate);
@@ -953,7 +1274,8 @@ export class Assembler {
 
     if (info.data_expr) {
       for (var i = 0; i < info.data_expr.length; i++) {
-        if (info.data_expr[i]) { // unresolved expression
+        if (info.data_expr[i]) {
+          // unresolved expression
           var value = this.evalConstant(info.data_expr[i], labels, true);
           if (value === false) return false;
           info.dump[i] = value;
@@ -1002,29 +1324,34 @@ export class Assembler {
    * If successful, returns:
    *   - infos: opcode info per line
    */
-  compile(lines, memory, logger) {
-    var labels = { };
+  compile(lines, memory, logger): boolean | {infos: any, syntax: any} {
+    var labels = {};
     var aborted = false;
     var pc = 0;
-    var infos = [ ];
-    var macros = { };
-    var syntax = [ ];
+    var infos = [];
+    var macros = {};
+    var syntax = [];
 
     for (var i = 0; i < lines.length && !aborted; i++) {
+      debugger;
       var l_logger = function(pos, text, fatal) {
         logger(i, pc, pos, text, fatal);
         if (fatal) aborted = true;
       };
       labels["."] = pc;
-      if (!this.parseConstant(lines[i], labels, { }, l_logger)) {
-        var info = this.compileLine(lines[i], pc, labels, macros, { }, l_logger);
+      if (!this.parseConstant(lines[i], labels, {}, l_logger)) {
+        var info = this.compileLine(lines[i], pc, labels, macros, {}, l_logger);
         if (!info) {
           syntax.push(lines[i]);
           break;
         }
         syntax.push(info.syntax);
         if (pc + info.size > 0xffff) {
-          l_logger(0, "Code is too big (exceeds 128 KB) &mdash; not enough memory", true);
+          l_logger(
+            0,
+            "Code is too big (exceeds 128 KB) &mdash; not enough memory",
+            true
+          );
           break;
         }
         if (info.org !== undefined) {

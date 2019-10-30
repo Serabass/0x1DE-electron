@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CodeModel } from '@ngstack/code-editor';
+import * as d from 'dcpu-emulator';
 
 @Component({
   selector: 'app-document',
@@ -49,12 +50,18 @@ export class DocumentComponent implements OnInit {
     }
   };
 
+  public memory = [];
+
+  constructor() {
+   }
+
+  ngOnInit() {
+    let e = new d.Emulator();
+    debugger;
+  }
+
   onCodeChanged(value) {
     console.log('CODE', value);
   }
-  constructor() { }
-
-  ngOnInit() {
-  }
-
+  
 }

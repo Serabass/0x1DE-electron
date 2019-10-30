@@ -1,4 +1,4 @@
-import { ge, startup, pad } from "./common";
+import { startup, pad } from "./common";
 
 // Low Energy Monitor LEM1802 (NYA_ELEKTRISKA)
 
@@ -296,11 +296,15 @@ export class Screen {
     0x7000
   ];
 
-  public screen: CanvasRenderingContext2D;
   public image: ImageData;
+  public screen: CanvasRenderingContext2D;
+
+  public constructor(public canvas: HTMLCanvasElement,
+                     public loading_overlay: HTMLImageElement) {
+    this.screen = canvas.getContext('2d');
+  }
 
   init() {
-    this.screen = ge("screen").getContext("2d");
     this.image = this.screen.createImageData(
       this.DISPLAY_WIDTH * this.PIXEL_SIZE,
       this.DISPLAY_HEIGHT * this.PIXEL_SIZE
@@ -323,11 +327,11 @@ export class Screen {
   update(memory) {
     var idx = this.MAP_SCREEN;
     if (idx == 0) {
-      ge("loading_overlay").style.display = "block";
+      this.loading_overlay.style.display = "block";
       return;
     } else {
       if (new Date().getTime() - startup > 2000)
-        ge("loading_overlay").style.display = "none";
+      this.loading_overlay.style.display = "none";
     }
     var palette = this.defaultPalette;
     if (this.MAP_PALETTE > 0) {
@@ -373,7 +377,7 @@ export class Screen {
           }
           var xbase = ((x << 2) + ax) * this.PIXEL_SIZE;
           for (var ay = 0; ay < 8; ay++) {
-            var color = byte & 1 ? fc : bc;
+            var color: any = byte & 1 ? fc : bc;
             var ybase = ((y << 3) + ay) * this.PIXEL_SIZE;
             for (var i = 0; i < this.PIXEL_SIZE; i++) {
               for (var j = 0; j < this.PIXEL_SIZE; j++) {
@@ -393,7 +397,7 @@ export class Screen {
     this.screen.putImageData(this.image, 0, 0);
 
     var back_color = palette[this.BORDER_COLOR];
-    ge("screen").style.backgroundColor =
+    this.canvas.style.backgroundColor =
       "#" +
       pad(back_color[0].toString(16), 2) +
       pad(back_color[1].toString(16), 2) +

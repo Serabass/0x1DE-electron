@@ -1,10 +1,10 @@
 import { pad } from "./common";
+import { Emulator } from "./emulator";
 
 /*
  *  DCPU-16 Assembler & Emulator Library
  *  by deNULL (me@denull.ru)
  */
-
 
 export interface Op {
   opcode: number;
@@ -24,7 +24,7 @@ export interface Res {
 }
 
 export class Disassembler {
-  REGISTERS = [ "A", "B", "C", "X", "Y", "Z", "I", "J" ];
+  REGISTERS = ["A", "B", "C", "X", "Y", "Z", "I", "J"];
   SPECIALS = {
     0x18: "PUSH",
     0x19: "PEEK",
@@ -57,11 +57,11 @@ export class Disassembler {
     0x15: "IFA",
     0x16: "IFL",
     0x17: "IFU",
-    0x1A: "ADX",
-    0x1B: "SBX",
+    0x1a: "ADX",
+    0x1b: "SBX",
     // ...
-    0x1E: "STI",
-    0x1F: "STD",
+    0x1e: "STI",
+    0x1f: "STD"
   };
   OP_SPECIAL = {
     0x01: "JSR",
@@ -75,12 +75,16 @@ export class Disassembler {
     // ...
     0x10: "HWN",
     0x11: "HWQ",
-    0x12: "HWI",
+    0x12: "HWI"
   };
+
+  public constructor(public dcpu: Emulator) {
+
+  }
 
   public address(n, labels) {
     if (labels[n]) return labels[n];
-    return (n > 15) ? ("0x" + pad(n.toString(16), 4)) : n.toString(10);
+    return n > 15 ? "0x" + pad(n.toString(16), 4) : n.toString(10);
   }
 
   decodeValue(is_a, code, immediate, labels, wrapAs) {
@@ -89,8 +93,13 @@ export class Disassembler {
     } else if (code < 0x10) {
       return "[" + wrapAs("reg", this.REGISTERS[code - 0x08]) + "]";
     } else if (code < 0x18) {
-      return "[" + wrapAs("reg", this.REGISTERS[code - 0x10]) + "+" +
-        wrapAs("lit", "0x" + pad(immediate.toString(16), 4)) + "]";
+      return (
+        "[" +
+        wrapAs("reg", this.REGISTERS[code - 0x10]) +
+        "+" +
+        wrapAs("lit", "0x" + pad(immediate.toString(16), 4)) +
+        "]"
+      );
     } else if (code == 0x18) {
       return wrapAs("kw", is_a ? "POP" : "PUSH");
     } else if (code == 0x1a) {
@@ -101,13 +110,19 @@ export class Disassembler {
       return "[" + wrapAs("lit", this.address(immediate, labels)) + "]";
     } else if (code == 0x1f) {
       return wrapAs("lit", this.address(immediate, labels));
-    } else { // embedded immediate
+    } else {
+      // embedded immediate
       return wrapAs("lit", this.address(immediate, labels));
     }
   }
 
   hasArg(code) {
-    return ((code >= 0x10 && code < 0x18) || code == 0x1a || code == 0x1e || code == 0x1f);
+    return (
+      (code >= 0x10 && code < 0x18) ||
+      code == 0x1a ||
+      code == 0x1e ||
+      code == 0x1f
+    );
   }
 
   nextOp(memory, offset) {
@@ -115,9 +130,9 @@ export class Disassembler {
     if (offset >= memory.length) return false;
     var word = memory[offset++];
     var op: Op = {
-       opcode: (word & 0x1f),
-       a: (word >> 10 & 0x3f),
-       b: (word >> 5 & 0x1f)
+      opcode: word & 0x1f,
+      a: (word >> 10) & 0x3f,
+      b: (word >> 5) & 0x1f
     };
     if (this.hasArg(op.b)) {
       if (offset >= memory.length) return false;
@@ -128,8 +143,8 @@ export class Disassembler {
       op.a_immediate = memory[offset++];
     }
     // go ahead and decode embedded immediates.
-    if (op.a >= 0x20) op.a_immediate = (op.a == 0x20 ? 0xffff : (op.a - 0x21));
-    if (op.b >= 0x20) op.b_immediate = (op.b == 0x20 ? 0xffff : (op.b - 0x21));
+    if (op.a >= 0x20) op.a_immediate = op.a == 0x20 ? 0xffff : op.a - 0x21;
+    if (op.b >= 0x20) op.b_immediate = op.b == 0x20 ? 0xffff : op.b - 0x21;
     op.size = offset - start;
     return op;
   }
@@ -144,11 +159,11 @@ export class Disassembler {
    *   - size: # of words consumed
    */
   disassemble(memory, offset, labels, wrapAs, logger) {
-    var res: Res = { };
+    var res: Res = {};
     var op = this.nextOp(memory, offset);
     if (!op) {
       logger(offset, "Disassembler reached end of the file");
-      return {size: 0, terminal: true};
+      return { size: 0, terminal: true };
     }
 
     res.size = op.size;
@@ -162,34 +177,44 @@ export class Disassembler {
       // special
       var code = this.OP_SPECIAL[op.b];
       if (code === undefined) {
-        logger(offset, "Unknown non-basic instruction: " + op.opcode.toString(16));
+        logger(
+          offset,
+          "Unknown non-basic instruction: " + op.opcode.toString(16)
+        );
 
         // again, for compatability purposes, decode unknown instructions as DATs (and add a comment)
         res.code = wrapAs("op", "DAT") + " ";
         for (var i = 0; i < op.size; i++) {
-          res.code += "0x" + pad(memory[offset + i].toString(16), 4) + (i < op.size - 1 ? ", " : "");
+          res.code +=
+            "0x" +
+            pad(memory[offset + i].toString(16), 4) +
+            (i < op.size - 1 ? ", " : "");
         }
         res.code += "  ; " + wrapAs("op", "???") + " " + va;
       } else {
         res.code = wrapAs("op", code) + " " + va;
       }
-      if (op.b == 0x0b) { // RFI
+      if (op.b == 0x0b) {
+        // RFI
         res.terminal = true;
       } else
-      switch (op.b) {
-        case 0x01:   // JSR
-        case 0x0a: { // IAS
-          if (op.a_immediate !== undefined) {
-            res.branch = op.a_immediate;
-            if (!labels[res.branch]) {
-              labels.last++;
-              labels[res.branch] = (op.b == 0x0a ? "int_handler" : "subroutine") + labels.last;
+        switch (op.b) {
+          case 0x01: // JSR
+          case 0x0a: {
+            // IAS
+            if (op.a_immediate !== undefined) {
+              res.branch = op.a_immediate;
+              if (!labels[res.branch]) {
+                labels.last++;
+                labels[res.branch] =
+                  (op.b == 0x0a ? "int_handler" : "subroutine") + labels.last;
+              }
+              res.code =
+                wrapAs("op", code) + " " + wrapAs("lbl", labels[res.branch]);
             }
-            res.code = wrapAs("op", code) + " " + wrapAs("lbl", labels[res.branch]);
+            return res;
           }
-          return res;
         }
-      }
     } else {
       var code = this.OP_BINARY[op.opcode];
       if (code === undefined) {
@@ -198,7 +223,10 @@ export class Disassembler {
         // again, for compatability purposes, decode unknown instructions as DATs (and add a comment)
         res.code = wrapAs("op", "DAT") + " ";
         for (var i = 0; i < op.size; i++) {
-          res.code += "0x" + pad(memory[offset + i].toString(16), 4) + (i < op.size - 1 ? ", " : "");
+          res.code +=
+            "0x" +
+            pad(memory[offset + i].toString(16), 4) +
+            (i < op.size - 1 ? ", " : "");
         }
         res.code += "  ; " + wrapAs("op", "???") + " " + vb + ", " + va;
       } else {
@@ -206,42 +234,103 @@ export class Disassembler {
       }
       if (op.opcode >= 0x10 && op.opcode <= 0x17) {
         res.conditional = true;
-      } else
-      if (op.b == 0x1c) { // PC
+      } else if (op.b == 0x1c) {
+        // PC
         offset += res.size;
         res.terminal = true;
         if (op.a_immediate === undefined) {
-          if (op.a != 0x18) // assuming SET PC, POP - RET
-            logger(offset, "(Warning) Can't predict the value of PC after " + res.code + ". Some instructions may be not disassembled.");
+          if (op.a != 0x18)
+            // assuming SET PC, POP - RET
+            logger(
+              offset,
+              "(Warning) Can't predict the value of PC after " +
+                res.code +
+                ". Some instructions may be not disassembled."
+            );
         } else
-        switch (op.opcode) {
-          case 0x01:
-          case 0x0f: {
-            res.branch = op.a_immediate;
-            if (!labels[res.branch]) {
-              labels.last++;
-              labels[res.branch] = "label" + labels.last;
+          switch (op.opcode) {
+            case 0x01:
+            case 0x0f: {
+              res.branch = op.a_immediate;
+              if (!labels[res.branch]) {
+                labels.last++;
+                labels[res.branch] = "label" + labels.last;
+              }
+              res.code =
+                wrapAs("op", code) +
+                " " +
+                vb +
+                ", " +
+                wrapAs("lbl", labels[res.branch]);
+              break;
             }
-            res.code = wrapAs("op", code) + " " + vb + ", " + wrapAs("lbl", labels[res.branch]);
-            break;
-          }
 
-          case 0x02: { res.branch = (offset + op.a_immediate) & 0xffff; break; }
-          case 0x03: { res.branch = (offset - op.a_immediate) & 0xffff; break; }
-          case 0x04: { res.branch = (offset * op.a_immediate) & 0xffff; break; }
-          case 0x05: { res.branch = (DCPU.extendSign(offset) * DCPU.extendSign(op.a_immediate)) & 0xffff; break; }
-          case 0x06: { res.branch = parseInt(offset / op.a_immediate) & 0xffff; break; }
-          case 0x07: { res.branch = parseInt(DCPU.extendSign(offset) / DCPU.extendSign(op.a_immediate)) & 0xffff; break; }
-          case 0x08: { res.branch = (op.a_immediate == 0) ? 0 : (offset % va.literal); break; }
-          case 0x09: { res.branch = (offset & op.a_immediate); break; }
-          case 0x0a: { res.branch = (offset | op.a_immediate); break; }
-          case 0x0b: { res.branch = (offset ^ op.a_immediate); break; }
-          case 0x0c: { res.branch = (offset >>> op.a_immediate) & 0xffff; break; }
-          case 0x0d: { res.branch = (DCPU.extendSign(offset) >> op.a_immediate) & 0xffff; break; }
-          case 0x0e: { res.branch = (offset << op.a_immediate) & 0xffff; break; }
-          case 0x1a: { res.branch = (offset + op.a_immediate) & 0xffff; break; }
-          case 0x1b: { res.branch = (offset - op.a_immediate) & 0xffff; break; }
-        }
+            case 0x02: {
+              res.branch = (offset + op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x03: {
+              res.branch = (offset - op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x04: {
+              res.branch = (offset * op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x05: {
+              res.branch =
+                (this.dcpu.extendSign(offset) * this.dcpu.extendSign(op.a_immediate)) &
+                0xffff;
+              break;
+            }
+            case 0x06: {
+              res.branch = parseInt((offset / op.a_immediate).toString()) & 0xffff;
+              break;
+            }
+            case 0x07: {
+              res.branch =
+                parseInt(
+                  (this.dcpu.extendSign(offset) / this.dcpu.extendSign(op.a_immediate)).toString()
+                ) & 0xffff;
+              break;
+            }
+            case 0x08: {
+              res.branch = op.a_immediate == 0 ? 0 : offset % va.literal;
+              break;
+            }
+            case 0x09: {
+              res.branch = offset & op.a_immediate;
+              break;
+            }
+            case 0x0a: {
+              res.branch = offset | op.a_immediate;
+              break;
+            }
+            case 0x0b: {
+              res.branch = offset ^ op.a_immediate;
+              break;
+            }
+            case 0x0c: {
+              res.branch = (offset >>> op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x0d: {
+              res.branch = (this.dcpu.extendSign(offset) >> op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x0e: {
+              res.branch = (offset << op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x1a: {
+              res.branch = (offset + op.a_immediate) & 0xffff;
+              break;
+            }
+            case 0x1b: {
+              res.branch = (offset - op.a_immediate) & 0xffff;
+              break;
+            }
+          }
       }
     }
     return res;
