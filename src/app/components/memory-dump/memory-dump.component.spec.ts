@@ -1,6 +1,7 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MemoryDumpComponent } from './memory-dump.component';
+import { NgZorroAntdModule } from 'ng-zorro-antd';
 
 describe('MemoryDumpComponent', () => {
   let component: MemoryDumpComponent;
@@ -8,6 +9,7 @@ describe('MemoryDumpComponent', () => {
 
   beforeEach(async(() => {
     TestBed.configureTestingModule({
+      imports: [NgZorroAntdModule],
       declarations: [ MemoryDumpComponent ]
     })
     .compileComponents();

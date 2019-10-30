@@ -1,6 +1,9 @@
 <nz-row>
-  <nz-col [nzMd]="24">
+  <nz-col [nzMd]="20">
     <app-toolbar></app-toolbar>
+  </nz-col>
+  <nz-col [nzMd]="4">
+    Cycles: 0
   </nz-col>
 </nz-row>
 
@@ -20,7 +23,9 @@
   </nz-col>
   <nz-col [nzMd]="9">
     <nz-row>
-      <nz-col>screen</nz-col>
+      <nz-col>
+        <app-screen></app-screen>
+      </nz-col>
     </nz-row>
     <nz-row>
       <nz-col><app-registers></app-registers></nz-col> 

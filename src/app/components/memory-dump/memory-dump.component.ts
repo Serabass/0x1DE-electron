@@ -14,7 +14,7 @@ export class MemoryDumpComponent implements OnInit {
   constructor() { }
 
   ngOnInit() {
-    for (let i = 0; i < 0x0A; i++) {
+    for (let i = 0; i < 21; i++) {
       this.rows.push([
         '0000',
         '0000',
@@ -27,5 +27,4 @@ export class MemoryDumpComponent implements OnInit {
       ]);
     }
   }
-
 }

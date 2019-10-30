@@ -10,12 +10,14 @@
 
 .reg {
   display: block;
-  width: 70px;
+  width: 87px;
   float: left;
 
   b {
-    width: 29px;
+    width: 40px;
     display: block;
     float: left;
+    text-align: right;
+    padding-right: 6px;
   }
 }

@@ -28,6 +28,7 @@ import { MemoryDumpComponent } from './components/memory-dump/memory-dump.compon
 import { ToolbarComponent } from './components/toolbar/toolbar.component';
 import { RegistersComponent } from './components/registers/registers.component';
 import { HexValuePipe } from './pipes/hex-value.pipe';
+import { ScreenComponent } from './components/screen/screen.component';
 registerLocaleData(en);
 
 // AoT requires an exported function for factories
@@ -42,7 +43,8 @@ export function HttpLoaderFactory(http: HttpClient) {
     MemoryDumpComponent,
     ToolbarComponent,
     RegistersComponent,
-
+    ScreenComponent,
+    
     HexValuePipe
   ],
   imports: [
